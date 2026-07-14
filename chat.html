@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المحادثة الذكية - Qwen AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+                    colors: { primary: '#8b5cf6', secondary: '#ec4899', dark: '#0f172a', darker: '#020617' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background: #020617; }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .message-user { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .message-ai { background: rgba(255,255,255,0.05); }
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%,80%,100% { transform: scale(0); } 40% { transform: scale(1); } }
+        .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        pre { background: #1e293b; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; direction: ltr; text-align: left; }
+        code { font-family: 'Fira Code', monospace; font-size: 0.875rem; }
+        .prose p { margin-bottom: 0.75rem; line-height: 1.8; }
+        .prose ul { list-style: disc; padding-right: 1.5rem; margin-bottom: 0.75rem; }
+        .prose ol { list-style: decimal; padding-right: 1.5rem; margin-bottom: 0.75rem; }
+        .prose h1, .prose h2, .prose h3 { font-weight: 700; margin: 1rem 0 0.5rem; }
+        .prose h1 { font-size: 1.5rem; }
+        .prose h2 { font-size: 1.25rem; }
+        .prose h3 { font-size: 1.1rem; }
+        .prose blockquote { border-right: 4px solid #8b5cf6; padding-right: 1rem; color: #94a3b8; margin: 0.75rem 0; }
+        .prose table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; }
+        .prose th, .prose td { border: 1px solid #334155; padding: 0.5rem; text-align: right; }
+        .prose th { background: #1e293b; }
+    </style>
+</head>
+<body class="h-screen flex text-white overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-72 glass flex flex-col border-l border-white/5 hidden md:flex">
+        <div class="p-4 border-b border-white/5">
+            <a href="index.html" class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center">
+                    <i class="fas fa-brain text-white text-sm"></i>
+                </div>
+                <span class="font-bold text-lg">Qwen Chat</span>
+            </a>
+            <button onclick="newChat()" class="w-full py-2.5 px-4 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 transition flex items-center gap-2 justify-center font-semibold">
+                <i class="fas fa-plus"></i> محادثة جديدة
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 scrollbar-hide" id="chatList">
+            <!-- Chat items will be here -->
+        </div>
+        <div class="p-4 border-t border-white/5 text-xs text-gray-500 text-center">
+            <span id="totalMessages">0</span> رسالة في الذاكرة
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col relative">
+        <!-- Header -->
+        <header class="glass border-b border-white/5 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button class="md:hidden p-2 rounded-lg hover:bg-white/5" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div>
+                    <h2 class="font-bold text-lg" id="currentChatTitle">محادثة جديدة</h2>
+                    <p class="text-xs text-gray-400" id="modelInfo">qwen-max-latest</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="exportChat()" class="p-2.5 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition" title="تصدير المحادثة">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button onclick="clearCurrentChat()" class="p-2.5 rounded-xl hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition" title="مسح المحادثة">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Messages -->
+        <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
+            <div class="text-center py-20 text-gray-500">
+                <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-comments text-3xl text-primary/50"></i>
+                </div>
+                <p class="text-lg mb-2">ابدأ محادثة جديدة</p>
+                <p class="text-sm">كل رسالة تحفظ في الذاكرة المحلية</p>
+            </div>
+        </div>
+
+        <!-- Input -->
+        <div class="glass border-t border-white/5 p-4">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex items-end gap-3 bg-white/5 rounded-2xl border border-white/10 p-3 focus-within:border-primary/50 transition">
+                    <textarea id="userInput" rows="1" placeholder="اكتب رسالتك هنا..." 
+                        class="flex-1 bg-transparent border-none outline-none resize-none text-white placeholder-gray-500 max-h-32 py-2"
+                        onkeydown="handleKeydown(event)"></textarea>
+                    <button onclick="sendMessage()" id="sendBtn" class="w-10 h-10 rounded-xl bg-primary hover:bg-primary/80 flex items-center justify-center transition shrink-0">
+                        <i class="fas fa-paper-plane text-white text-sm"></i>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between mt-2 text-xs text-gray-500">
+                    <span>Shift + Enter سطر جديد</span>
+                    <span id="tokenEstimate">0 رسالة</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'https://qwen.aikit.club/v1/chat/completions';
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFlNmM0MjQ4LWM0NGMtNGQzNi05MDhhLTFiNjhiNWMwNGU5MiIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzc2MDc4MTc2LCJleHAiOjE3ODYwNTE5NzJ9.mNPa6pFQY9DpMD1OLmtXfyarMJVymDh7pgV0VGH4v4I';
+        const MODEL = 'qwen-max-latest';
+
+        let currentChatId = null;
+        let isLoading = false;
+        let chats = JSON.parse(localStorage.getItem('qwen_chats') || '[]');
+
+        // Initialize
+        if (chats.length === 0) newChat();
+        else loadChat(chats[0].id);
+        renderChatList();
+
+        function newChat() {
+            const id = Date.now().toString();
+            const chat = {
+                id: id,
+                title: 'محادثة ' + new Date().toLocaleDateString('ar-SA'),
+                createdAt: Date.now(),
+                messages: []
+            };
+            chats.unshift(chat);
+            saveChats();
+            loadChat(id);
+            renderChatList();
+        }
+
+        function loadChat(id) {
+            currentChatId = id;
+            const chat = chats.find(c => c.id === id);
+            if (!chat) return;
+
+            document.getElementById('currentChatTitle').textContent = chat.title;
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+
+            if (chat.messages.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-20 text-gray-500">
+                        <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-comments text-3xl text-primary/50"></i>
+                        </div>
+                        <p class="text-lg mb-2">ابدأ محادثة جديدة</p>
+                        <p class="text-sm">كل رسالة تحفظ في الذاكرة المحلية</p>
+                    </div>`;
+            } else {
+                chat.messages.forEach(msg => appendMessage(msg.role, msg.content, false));
+            }
+
+            updateTokenEstimate();
+            renderChatList();
+            setTimeout(() => container.scrollTop = container.scrollHeight, 10);
+        }
+
+        function renderChatList() {
+            const list = document.getElementById('chatList');
+            list.innerHTML = chats.map(chat => `
+                <div onclick="loadChat('${chat.id}')" 
+                    class="p-3 rounded-xl cursor-pointer transition mb-2 ${chat.id === currentChatId ? 'bg-primary/20 border border-primary/30' : 'hover:bg-white/5 border border-transparent'}">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fas fa-comment-alt text-xs ${chat.id === currentChatId ? 'text-primary' : 'text-gray-500'}"></i>
+                        <span class="font-medium text-sm truncate">${chat.title}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>${chat.messages.length} رسالة</span>
+                        <button onclick="event.stopPropagation(); deleteChat('${chat.id}')" class="hover:text-red-400 transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            const total = chats.reduce((sum, c) => sum + c.messages.length, 0);
+            document.getElementById('totalMessages').textContent = total;
+        }
+
+        function deleteChat(id) {
+            if (confirm('هل تريد حذف هذه المحادثة؟')) {
+                chats = chats.filter(c => c.id !== id);
+                if (chats.length === 0) newChat();
+                else if (currentChatId === id) loadChat(chats[0].id);
+                saveChats();
+                renderChatList();
+            }
+        }
+
+        function saveChats() {
+            localStorage.setItem('qwen_chats', JSON.stringify(chats));
+        }
+
+        function appendMessage(role, content, animate = true) {
+            const container = document.getElementById('messagesContainer');
+            if (container.querySelector('.text-center.py-20')) container.innerHTML = '';
+
+            const div = document.createElement('div');
+            div.className = `flex ${role === 'user' ? 'justify-start' : 'justify-end'} ${animate ? 'slide-in' : ''}`;
+
+            const isUser = role === 'user';
+            div.innerHTML = `
+                <div class="max-w-[85%] md:max-w-[75%] ${isUser ? 'message-user' : 'message-ai'} rounded-2xl px-5 py-4 ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}">
+                    <div class="flex items-center gap-2 mb-2 ${isUser ? '' : 'flex-row-reverse'}">
+                        <div class="w-6 h-6 rounded-full ${isUser ? 'bg-white/20' : 'bg-primary/20'} flex items-center justify-center">
+                            <i class="fas ${isUser ? 'fa-user' : 'fa-robot'} text-xs ${isUser ? 'text-white' : 'text-primary'}"></i>
+                        </div>
+                        <span class="text-xs font-medium ${isUser ? 'text-white/80' : 'text-gray-400'}">${isUser ? 'أنت' : 'Qwen AI'}</span>
+                    </div>
+                    <div class="prose prose-invert text-sm ${isUser ? 'text-white' : 'text-gray-200'}">
+                        ${isUser ? escapeHtml(content) : marked.parse(content)}
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendTyping() {
+            const container = document.getElementById('messagesContainer');
+            const div = document.createElement('div');
+            div.id = 'typingIndicator';
+            div.className = 'flex justify-end slide-in';
+            div.innerHTML = `
+                <div class="message-ai rounded-2xl px-5 py-4 rounded-tl-sm max-w-[75%]">
+                    <div class="flex items-center gap-2 mb-2 flex-row-reverse">
+                        <div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                            <i class="fas fa-robot text-xs text-primary"></i>
+                        </div>
+                        <span class="text-xs font-medium text-gray-400">Qwen AI</span>
+                    </div>
+                    <div class="flex gap-1.5 py-2">
+                        <div class="w-2 h-2 rounded-full bg-primary/60 typing-dot"></div>
+                        <div class="w-2 h-2 rounded-full bg-primary/60 typing-dot"></div>
+                        <div class="w-2 h-2 rounded-full bg-primary/60 typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeTyping() {
+            const el = document.getElementById('typingIndicator');
+            if (el) el.remove();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const content = input.value.trim();
+            if (!content || isLoading) return;
+
+            const chat = chats.find(c => c.id === currentChatId);
+            if (!chat) return;
+
+            // Add user message
+            chat.messages.push({ role: 'user', content, timestamp: Date.now() });
+            appendMessage('user', content);
+            input.value = '';
+            input.style.height = 'auto';
+            isLoading = true;
+            updateSendButton();
+
+            // Show typing
+            appendTyping();
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: MODEL,
+                        messages: chat.messages.map(m => ({ role: m.role, content: m.content })),
+                        stream: false
+                    })
+                });
+
+                removeTyping();
+
+                if (!response.ok) throw new Error('API Error: ' + response.status);
+
+                const data = await response.json();
+                const aiContent = data.choices[0].message.content;
+
+                // Add AI message to memory
+                chat.messages.push({ role: 'assistant', content: aiContent, timestamp: Date.now() });
+
+                // Update title if first message
+                if (chat.messages.length === 2) {
+                    chat.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+                    document.getElementById('currentChatTitle').textContent = chat.title;
+                }
+
+                saveChats();
+                appendMessage('assistant', aiContent);
+                renderChatList();
+
+            } catch (err) {
+                removeTyping();
+                appendMessage('assistant', '❌ خطأ: ' + err.message + '\n\nتأكد من اتصالك بالإنترنت أو صلاحية التوكن.');
+            } finally {
+                isLoading = false;
+                updateSendButton();
+                updateTokenEstimate();
+            }
+        }
+
+        function updateSendButton() {
+            const btn = document.getElementById('sendBtn');
+            btn.innerHTML = isLoading ? '<i class="fas fa-spinner fa-spin text-white text-sm"></i>' : '<i class="fas fa-paper-plane text-white text-sm"></i>';
+            btn.className = isLoading ? 'w-10 h-10 rounded-xl bg-gray-600 flex items-center justify-center shrink-0' : 'w-10 h-10 rounded-xl bg-primary hover:bg-primary/80 flex items-center justify-center transition shrink-0';
+        }
+
+        function updateTokenEstimate() {
+            const chat = chats.find(c => c.id === currentChatId);
+            const count = chat ? chat.messages.length : 0;
+            document.getElementById('tokenEstimate').textContent = count + ' رسالة في الذاكرة';
+        }
+
+        function handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+            // Auto resize
+            const el = e.target;
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+        }
+
+        function clearCurrentChat() {
+            if (confirm('هل تريد مسح هذه المحادثة؟')) {
+                const chat = chats.find(c => c.id === currentChatId);
+                if (chat) {
+                    chat.messages = [];
+                    chat.title = 'محادثة ' + new Date().toLocaleDateString('ar-SA');
+                    saveChats();
+                    loadChat(currentChatId);
+                }
+            }
+        }
+
+        function exportChat() {
+            const chat = chats.find(c => c.id === currentChatId);
+            if (!chat || chat.messages.length === 0) return;
+
+            let text = `محادثة: ${chat.title}\n`;
+            text += `التاريخ: ${new Date(chat.createdAt).toLocaleString('ar-SA')}\n`;
+            text += `النموذج: ${MODEL}\n`;
+            text += '─'.repeat(50) + '\n\n';
+
+            chat.messages.forEach(m => {
+                text += `${m.role === 'user' ? '👤 أنت' : '🤖 Qwen'} (${new Date(m.timestamp).toLocaleTimeString('ar-SA')}):\n`;
+                text += m.content + '\n\n';
+            });
+
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chat_${chat.id}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleSidebar() {
+            document.querySelector('aside').classList.toggle('hidden');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/\n/g, '<br>');
+        }
+    </script>
+</body>
+</html>
