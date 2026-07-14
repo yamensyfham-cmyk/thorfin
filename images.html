@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>استوديو الصور - Qwen AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+                    colors: { primary: '#8b5cf6', secondary: '#ec4899', dark: '#0f172a', darker: '#020617' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background: #020617; }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .slide-in { animation: slideIn 0.4s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .image-card:hover .image-overlay { opacity: 1; }
+        .tab-active { background: linear-gradient(135deg, #ec4899, #be185d); }
+        .drop-zone { border: 2px dashed rgba(236,72,153,0.3); transition: all 0.3s; }
+        .drop-zone.dragover { border-color: #ec4899; background: rgba(236,72,153,0.05); }
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-top-color: #ec4899; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen flex text-white overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-72 glass flex flex-col border-l border-white/5 hidden md:flex">
+        <div class="p-4 border-b border-white/5">
+            <a href="index.html" class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-secondary to-pink-600 flex items-center justify-center">
+                    <i class="fas fa-image text-white text-sm"></i>
+                </div>
+                <span class="font-bold text-lg">استوديو الصور</span>
+            </a>
+            <button onclick="newSession()" class="w-full py-2.5 px-4 rounded-xl bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 transition flex items-center gap-2 justify-center font-semibold">
+                <i class="fas fa-plus"></i> جلسة جديدة
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 scrollbar-hide" id="sessionList">
+            <!-- Sessions -->
+        </div>
+        <div class="p-4 border-t border-white/5 text-xs text-gray-500 text-center">
+            <span id="totalImages">0</span> صورة في الذاكرة
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col">
+        <!-- Header -->
+        <header class="glass border-b border-white/5 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button class="md:hidden p-2 rounded-lg hover:bg-white/5" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div>
+                    <h2 class="font-bold text-lg" id="currentSessionTitle">جلسة جديدة</h2>
+                    <p class="text-xs text-gray-400">صور + تحليل + ذاكرة</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="clearCurrentSession()" class="p-2.5 rounded-xl hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition" title="مسح الجلسة">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <div class="px-6 pt-4 flex gap-2">
+            <button onclick="setTab('generate')" id="tab-generate" class="tab-active px-5 py-2 rounded-xl text-sm font-medium transition">
+                <i class="fas fa-wand-magic-sparkles ml-1"></i> توليد
+            </button>
+            <button onclick="setTab('analyze')" id="tab-analyze" class="px-5 py-2 rounded-xl text-sm font-medium bg-white/5 hover:bg-white/10 transition text-gray-300">
+                <i class="fas fa-eye ml-1"></i> تحليل صورة
+            </button>
+            <button onclick="setTab('gallery')" id="tab-gallery" class="px-5 py-2 rounded-xl text-sm font-medium bg-white/5 hover:bg-white/10 transition text-gray-300">
+                <i class="fas fa-images ml-1"></i> معرض الجلسة
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-6 scrollbar-hide" id="mainContent">
+            <!-- Generate Tab -->
+            <div id="content-generate" class="max-w-3xl mx-auto">
+                <div class="glass rounded-2xl p-6 mb-6">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">وصف الصورة</label>
+                    <textarea id="generatePrompt" rows="3" placeholder="صِف الصورة التي تريد توليدها... مثال: قطة برتقالية نائمة على كنبة زرقاء في غرفة مضيئة بأشعة الشمس"
+                        class="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 outline-none focus:border-secondary/50 transition resize-none"></textarea>
+                    <div class="flex items-center justify-between mt-4">
+                        <div class="flex items-center gap-3">
+                            <select id="imageSize" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-secondary/50">
+                                <option value="1024x1024">1024×1024</option>
+                                <option value="1024x768">1024×768</option>
+                                <option value="768x1024">768×1024</option>
+                            </select>
+                            <select id="imageModel" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-secondary/50">
+                                <option value="qwen-image-2.0">Qwen Image 2.0</option>
+                                <option value="qwen-image">Qwen Image</option>
+                            </select>
+                        </div>
+                        <button onclick="generateImage()" id="genBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-secondary to-pink-600 hover:opacity-90 transition font-semibold flex items-center gap-2">
+                            <i class="fas fa-wand-magic-sparkles"></i> توليد
+                        </button>
+                    </div>
+                </div>
+
+                <div id="generateResult" class="hidden">
+                    <div class="glass rounded-2xl p-4 slide-in">
+                        <img id="generatedImage" class="w-full rounded-xl mb-4" alt="Generated">
+                        <div class="flex items-center justify-between">
+                            <p id="genPromptDisplay" class="text-sm text-gray-400"></p>
+                            <div class="flex gap-2">
+                                <a id="downloadLink" download class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition text-sm flex items-center gap-2">
+                                    <i class="fas fa-download"></i> تحميل
+                                </a>
+                                <button onclick="addToChat('image')" class="px-4 py-2 rounded-lg bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 transition text-sm flex items-center gap-2">
+                                    <i class="fas fa-comment"></i> ناقش الصورة
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="generateLoading" class="hidden flex flex-col items-center justify-center py-20">
+                    <div class="spinner mb-4"></div>
+                    <p class="text-gray-400">يتم توليد الصورة...</p>
+                </div>
+            </div>
+
+            <!-- Analyze Tab -->
+            <div id="content-analyze" class="max-w-3xl mx-auto hidden">
+                <div class="glass rounded-2xl p-6 mb-6">
+                    <div id="uploadZone" class="drop-zone rounded-xl p-8 text-center cursor-pointer transition" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-secondary/50 mb-3"></i>
+                        <p class="text-gray-300 mb-1">اسحب صورة هنا أو انقر للرفع</p>
+                        <p class="text-xs text-gray-500">JPG, PNG, GIF, WebP - حتى 10MB</p>
+                        <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                    </div>
+                    <div id="previewContainer" class="hidden mt-4">
+                        <img id="imagePreview" class="max-h-64 rounded-xl mx-auto mb-4 object-contain">
+                        <textarea id="analyzePrompt" rows="2" placeholder="اسأل عن الصورة... (اختياري)"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white placeholder-gray-500 outline-none focus:border-secondary/50 transition resize-none mb-3"></textarea>
+                        <button onclick="analyzeImage()" id="analyzeBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-secondary to-pink-600 hover:opacity-90 transition font-semibold">
+                            <i class="fas fa-eye ml-1"></i> تحليل الصورة
+                        </button>
+                    </div>
+                </div>
+
+                <div id="analyzeResult" class="space-y-4"></div>
+                <div id="analyzeLoading" class="hidden flex flex-col items-center justify-center py-10">
+                    <div class="spinner mb-4"></div>
+                    <p class="text-gray-400">يتم تحليل الصورة...</p>
+                </div>
+            </div>
+
+            <!-- Gallery Tab -->
+            <div id="content-gallery" class="hidden">
+                <div id="galleryGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <!-- Images -->
+                </div>
+                <div id="emptyGallery" class="text-center py-20 text-gray-500">
+                    <i class="fas fa-images text-5xl mb-4 opacity-30"></i>
+                    <p>لا توجد صور في هذه الجلسة</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'https://qwen.aikit.club/v1/chat/completions';
+        const IMAGE_URL = 'https://qwen.aikit.club/v1/images/generations';
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFlNmM0MjQ4LWM0NGMtNGQzNi05MDhhLTFiNjhiNWMwNGU5MiIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzc2MDc4MTc2LCJleHAiOjE3ODYwNTE5NzJ9.mNPa6pFQY9DpMD1OLmtXfyarMJVymDh7pgV0VGH4v4I';
+
+        let currentSessionId = null;
+        let currentTab = 'generate';
+        let currentImageBase64 = null;
+        let sessions = JSON.parse(localStorage.getItem('qwen_image_sessions') || '[]');
+
+        if (sessions.length === 0) newSession();
+        else loadSession(sessions[0].id);
+        renderSessionList();
+
+        function newSession() {
+            const id = Date.now().toString();
+            const session = {
+                id: id,
+                title: 'جلسة صور ' + new Date().toLocaleDateString('ar-SA'),
+                createdAt: Date.now(),
+                images: [],
+                chat: []
+            };
+            sessions.unshift(session);
+            saveSessions();
+            loadSession(id);
+            renderSessionList();
+        }
+
+        function loadSession(id) {
+            currentSessionId = id;
+            const session = sessions.find(s => s.id === id);
+            if (!session) return;
+            document.getElementById('currentSessionTitle').textContent = session.title;
+            renderGallery();
+            updateTotalImages();
+            renderSessionList();
+        }
+
+        function renderSessionList() {
+            const list = document.getElementById('sessionList');
+            list.innerHTML = sessions.map(s => `
+                <div onclick="loadSession('${s.id}')" 
+                    class="p-3 rounded-xl cursor-pointer transition mb-2 ${s.id === currentSessionId ? 'bg-secondary/20 border border-secondary/30' : 'hover:bg-white/5 border border-transparent'}">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fas fa-image text-xs ${s.id === currentSessionId ? 'text-secondary' : 'text-gray-500'}"></i>
+                        <span class="font-medium text-sm truncate">${s.title}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>${s.images.length} صورة</span>
+                        <button onclick="event.stopPropagation(); deleteSession('${s.id}')" class="hover:text-red-400 transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteSession(id) {
+            if (confirm('هل تريد حذف هذه الجلسة؟')) {
+                sessions = sessions.filter(s => s.id !== id);
+                if (sessions.length === 0) newSession();
+                else if (currentSessionId === id) loadSession(sessions[0].id);
+                saveSessions();
+                renderSessionList();
+            }
+        }
+
+        function saveSessions() {
+            localStorage.setItem('qwen_image_sessions', JSON.stringify(sessions));
+        }
+
+        function setTab(tab) {
+            currentTab = tab;
+            ['generate', 'analyze', 'gallery'].forEach(t => {
+                document.getElementById('content-' + t).classList.add('hidden');
+                const btn = document.getElementById('tab-' + t);
+                btn.classList.remove('tab-active');
+                btn.classList.add('bg-white/5', 'text-gray-300');
+            });
+            document.getElementById('content-' + tab).classList.remove('hidden');
+            const activeBtn = document.getElementById('tab-' + tab);
+            activeBtn.classList.add('tab-active');
+            activeBtn.classList.remove('bg-white/5', 'text-gray-300');
+            if (tab === 'gallery') renderGallery();
+        }
+
+        async function generateImage() {
+            const prompt = document.getElementById('generatePrompt').value.trim();
+            if (!prompt) return;
+
+            const session = sessions.find(s => s.id === currentSessionId);
+
+            document.getElementById('generateLoading').classList.remove('hidden');
+            document.getElementById('generateResult').classList.add('hidden');
+            document.getElementById('genBtn').disabled = true;
+
+            try {
+                const response = await fetch(IMAGE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: document.getElementById('imageModel').value,
+                        prompt: prompt,
+                        size: document.getElementById('imageSize').value
+                    })
+                });
+
+                if (!response.ok) throw new Error('Error: ' + response.status);
+
+                const data = await response.json();
+                const imageUrl = data.data[0].url;
+
+                // Save to memory
+                const imageData = {
+                    id: Date.now().toString(),
+                    type: 'generated',
+                    url: imageUrl,
+                    prompt: prompt,
+                    timestamp: Date.now()
+                };
+                session.images.unshift(imageData);
+                if (session.chat.length === 0) session.title = prompt.substring(0, 25) + '...';
+                session.chat.push({ role: 'user', content: prompt, timestamp: Date.now() });
+                session.chat.push({ role: 'assistant', content: `![صورة مولدة](${imageUrl})`, timestamp: Date.now() });
+                saveSessions();
+
+                // Display
+                document.getElementById('generatedImage').src = imageUrl;
+                document.getElementById('genPromptDisplay').textContent = prompt;
+                document.getElementById('downloadLink').href = imageUrl;
+                document.getElementById('generateResult').classList.remove('hidden');
+                updateTotalImages();
+                renderSessionList();
+
+            } catch (err) {
+                alert('خطأ: ' + err.message);
+            } finally {
+                document.getElementById('generateLoading').classList.add('hidden');
+                document.getElementById('genBtn').disabled = false;
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 10 * 1024 * 1024) { alert('الصورة كبيرة جداً. الحد الأقصى 10MB'); return; }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                currentImageBase64 = event.target.result;
+                document.getElementById('imagePreview').src = currentImageBase64;
+                document.getElementById('previewContainer').classList.remove('hidden');
+                document.getElementById('uploadZone').classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function analyzeImage() {
+            if (!currentImageBase64) return;
+            const prompt = document.getElementById('analyzePrompt').value.trim() || 'صف هذه الصورة بالتفصيل';
+            const session = sessions.find(s => s.id === currentSessionId);
+
+            document.getElementById('analyzeLoading').classList.remove('hidden');
+            document.getElementById('analyzeBtn').disabled = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-vl-max-latest',
+                        messages: [
+                            {
+                                role: 'user',
+                                content: [
+                                    { type: 'image_url', image_url: { url: currentImageBase64 } },
+                                    { type: 'text', text: prompt }
+                                ]
+                            }
+                        ]
+                    })
+                });
+
+                if (!response.ok) throw new Error('Error: ' + response.status);
+
+                const data = await response.json();
+                const analysis = data.choices[0].message.content;
+
+                // Save to session memory
+                const imageData = {
+                    id: Date.now().toString(),
+                    type: 'analyzed',
+                    base64: currentImageBase64,
+                    prompt: prompt,
+                    analysis: analysis,
+                    timestamp: Date.now()
+                };
+                session.images.unshift(imageData);
+                session.chat.push({ role: 'user', content: `[صورة]: ${prompt}`, timestamp: Date.now() });
+                session.chat.push({ role: 'assistant', content: analysis, timestamp: Date.now() });
+                saveSessions();
+
+                // Display result
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'glass rounded-2xl p-4 slide-in';
+                resultDiv.innerHTML = `
+                    <div class="flex gap-4 mb-4">
+                        <img src="${currentImageBase64}" class="w-32 h-32 object-cover rounded-xl">
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-400 mb-2">${prompt}</p>
+                            <div class="text-sm leading-relaxed">${analysis.replace(/\n/g, '<br>')}</div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('analyzeResult').prepend(resultDiv);
+
+                // Reset
+                document.getElementById('uploadZone').classList.remove('hidden');
+                document.getElementById('previewContainer').classList.add('hidden');
+                document.getElementById('fileInput').value = '';
+                currentImageBase64 = null;
+                updateTotalImages();
+                renderSessionList();
+
+            } catch (err) {
+                alert('خطأ: ' + err.message);
+            } finally {
+                document.getElementById('analyzeLoading').classList.add('hidden');
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        }
+
+        function renderGallery() {
+            const session = sessions.find(s => s.id === currentSessionId);
+            const grid = document.getElementById('galleryGrid');
+            const empty = document.getElementById('emptyGallery');
+
+            if (!session || session.images.length === 0) {
+                grid.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            grid.classList.remove('hidden');
+            empty.classList.add('hidden');
+
+            grid.innerHTML = session.images.map(img => `
+                <div class="image-card glass rounded-xl overflow-hidden relative group slide-in">
+                    <img src="${img.type === 'generated' ? img.url : img.base64}" class="w-full h-48 object-cover">
+                    <div class="image-overlay absolute inset-0 bg-black/70 opacity-0 transition flex flex-col items-center justify-center p-4 text-center">
+                        <p class="text-xs text-gray-300 mb-2 line-clamp-2">${img.prompt}</p>
+                        <div class="flex gap-2">
+                            ${img.type === 'generated' ? `<a href="${img.url}" download class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"><i class="fas fa-download"></i></a>` : ''}
+                            <button onclick="deleteImage('${img.id}')" class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs ${img.type === 'generated' ? 'bg-secondary/60' : 'bg-primary/60'}">
+                        ${img.type === 'generated' ? 'مولدة' : 'محللة'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteImage(id) {
+            const session = sessions.find(s => s.id === currentSessionId);
+            if (!session) return;
+            session.images = session.images.filter(i => i.id !== id);
+            saveSessions();
+            renderGallery();
+            updateTotalImages();
+            renderSessionList();
+        }
+
+        function addToChat(type) {
+            alert('تم إضافة الصورة إلى سجل المحادثة. يمكنك متابعة النقاش في تبويب المحادثة.');
+        }
+
+        function clearCurrentSession() {
+            if (confirm('هل تريد مسح هذه الجلسة؟')) {
+                const session = sessions.find(s => s.id === currentSessionId);
+                if (session) {
+                    session.images = [];
+                    session.chat = [];
+                    session.title = 'جلسة صور ' + new Date().toLocaleDateString('ar-SA');
+                    saveSessions();
+                    loadSession(currentSessionId);
+                }
+            }
+        }
+
+        function updateTotalImages() {
+            const total = sessions.reduce((sum, s) => sum + s.images.length, 0);
+            document.getElementById('totalImages').textContent = total;
+        }
+
+        function toggleSidebar() {
+            document.querySelector('aside').classList.toggle('hidden');
+        }
+
+        // Drag & drop
+        const dropZone = document.getElementById('uploadZone');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                document.getElementById('fileInput').files = files;
+                handleFileSelect({ target: { files: files } });
+            }
+        });
+    </script>
+</body>
+</html>
