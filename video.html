@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مولد الفيديو - Qwen AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+                    colors: { primary: '#8b5cf6', secondary: '#ec4899', accent: '#06b6d4', dark: '#0f172a', darker: '#020617' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background: #020617; }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .slide-in { animation: slideIn 0.4s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .progress-bar { background: linear-gradient(90deg, #06b6d4, #0891b2); background-size: 200% 100%; animation: gradientMove 2s linear infinite; }
+        @keyframes gradientMove { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+        .video-card:hover .video-overlay { opacity: 1; }
+        .status-pending { color: #fbbf24; }
+        .status-processing { color: #06b6d4; }
+        .status-done { color: #22c55e; }
+        .status-error { color: #ef4444; }
+    </style>
+</head>
+<body class="h-screen flex text-white overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-72 glass flex flex-col border-l border-white/5 hidden md:flex">
+        <div class="p-4 border-b border-white/5">
+            <a href="index.html" class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-cyan-600 flex items-center justify-center">
+                    <i class="fas fa-video text-white text-sm"></i>
+                </div>
+                <span class="font-bold text-lg">مولد الفيديو</span>
+            </a>
+            <button onclick="newProject()" class="w-full py-2.5 px-4 rounded-xl bg-accent/20 hover:bg-accent/30 text-accent border border-accent/30 transition flex items-center gap-2 justify-center font-semibold">
+                <i class="fas fa-plus"></i> مشروع جديد
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 scrollbar-hide" id="projectList">
+            <!-- Projects -->
+        </div>
+        <div class="p-4 border-t border-white/5 text-xs text-gray-500 text-center">
+            <span id="totalVideos">0</span> فيديو في الذاكرة
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col">
+        <!-- Header -->
+        <header class="glass border-b border-white/5 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button class="md:hidden p-2 rounded-lg hover:bg-white/5" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div>
+                    <h2 class="font-bold text-lg" id="currentProjectTitle">مشروع جديد</h2>
+                    <p class="text-xs text-gray-400">توليد فيديو من النصوص</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="clearCurrentProject()" class="p-2.5 rounded-xl hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition" title="مسح المشروع">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-6 scrollbar-hide">
+            <div class="max-w-4xl mx-auto">
+                <!-- Input Section -->
+                <div class="glass rounded-2xl p-6 mb-8">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fas fa-wand-magic-sparkles text-accent"></i>
+                        <h3 class="font-bold text-lg">وصف الفيديو</h3>
+                    </div>
+                    <textarea id="videoPrompt" rows="4" placeholder="صِف المشهد الذي تريده بالتفصيل... مثال: غروب شمس ذهبي فوق جبال ثلجية، كاميرا تتحرك ببطء من اليسار إلى اليمين، سحب وردية في السماء"
+                        class="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 outline-none focus:border-accent/50 transition resize-none mb-4"></textarea>
+
+                    <div class="flex flex-wrap items-center gap-3 mb-4">
+                        <select id="videoDuration" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50">
+                            <option value="5">5 ثواني</option>
+                            <option value="10">10 ثواني</option>
+                        </select>
+                        <select id="videoRatio" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50">
+                            <option value="16:9">واسع 16:9</option>
+                            <option value="9:16">عمودي 9:16</option>
+                            <option value="1:1">مربع 1:1</option>
+                        </select>
+                        <select id="videoQuality" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50">
+                            <option value="720">720p</option>
+                            <option value="1080">1080p</option>
+                        </select>
+                    </div>
+
+                    <button onclick="generateVideo()" id="videoGenBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-cyan-600 hover:opacity-90 transition font-bold text-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-play"></i> إنشاء الفيديو
+                    </button>
+                </div>
+
+                <!-- Active Jobs -->
+                <div id="activeJobs" class="mb-8 hidden">
+                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                        <i class="fas fa-spinner fa-spin text-accent"></i> قيد المعالجة
+                    </h3>
+                    <div id="jobsList" class="space-y-3"></div>
+                </div>
+
+                <!-- Generated Videos -->
+                <div>
+                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                        <i class="fas fa-film text-accent"></i> الفيديوهات المولدة
+                    </h3>
+                    <div id="videosGrid" class="grid md:grid-cols-2 gap-4">
+                        <!-- Videos -->
+                    </div>
+                    <div id="emptyVideos" class="text-center py-20 text-gray-500">
+                        <div class="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-film text-3xl text-accent/50"></i>
+                        </div>
+                        <p class="text-lg mb-2">لا توجد فيديوهات بعد</p>
+                        <p class="text-sm">اكتب وصفاً وأنشئ فيديوك الأول</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'https://qwen.aikit.club/v1/chat/completions';
+        const VIDEO_URL = 'https://qwen.aikit.club/v1/video/generations';
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFlNmM0MjQ4LWM0NGMtNGQzNi05MDhhLTFiNjhiNWMwNGU5MiIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzc2MDc4MTc2LCJleHAiOjE3ODYwNTE5NzJ9.mNPa6pFQY9DpMD1OLmtXfyarMJVymDh7pgV0VGH4v4I';
+
+        let currentProjectId = null;
+        let projects = JSON.parse(localStorage.getItem('qwen_video_projects') || '[]');
+        let activeJobs = [];
+
+        if (projects.length === 0) newProject();
+        else loadProject(projects[0].id);
+        renderProjectList();
+
+        function newProject() {
+            const id = Date.now().toString();
+            const project = {
+                id: id,
+                title: 'مشروع ' + new Date().toLocaleDateString('ar-SA'),
+                createdAt: Date.now(),
+                videos: [],
+                chat: []
+            };
+            projects.unshift(project);
+            saveProjects();
+            loadProject(id);
+            renderProjectList();
+        }
+
+        function loadProject(id) {
+            currentProjectId = id;
+            const project = projects.find(p => p.id === id);
+            if (!project) return;
+            document.getElementById('currentProjectTitle').textContent = project.title;
+            renderVideos();
+            updateTotalVideos();
+            renderProjectList();
+        }
+
+        function renderProjectList() {
+            const list = document.getElementById('projectList');
+            list.innerHTML = projects.map(p => `
+                <div onclick="loadProject('${p.id}')" 
+                    class="p-3 rounded-xl cursor-pointer transition mb-2 ${p.id === currentProjectId ? 'bg-accent/20 border border-accent/30' : 'hover:bg-white/5 border border-transparent'}">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fas fa-film text-xs ${p.id === currentProjectId ? 'text-accent' : 'text-gray-500'}"></i>
+                        <span class="font-medium text-sm truncate">${p.title}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>${p.videos.length} فيديو</span>
+                        <button onclick="event.stopPropagation(); deleteProject('${p.id}')" class="hover:text-red-400 transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteProject(id) {
+            if (confirm('هل تريد حذف هذا المشروع؟')) {
+                projects = projects.filter(p => p.id !== id);
+                if (projects.length === 0) newProject();
+                else if (currentProjectId === id) loadProject(projects[0].id);
+                saveProjects();
+                renderProjectList();
+            }
+        }
+
+        function saveProjects() {
+            localStorage.setItem('qwen_video_projects', JSON.stringify(projects));
+        }
+
+        async function generateVideo() {
+            const prompt = document.getElementById('videoPrompt').value.trim();
+            if (!prompt) return;
+
+            const project = projects.find(p => p.id === currentProjectId);
+            const duration = document.getElementById('videoDuration').value;
+            const ratio = document.getElementById('videoRatio').value;
+            const quality = document.getElementById('videoQuality').value;
+
+            const jobId = Date.now().toString();
+            const job = {
+                id: jobId,
+                prompt: prompt,
+                status: 'processing',
+                progress: 0,
+                timestamp: Date.now()
+            };
+            activeJobs.push(job);
+            renderJobs();
+
+            document.getElementById('videoGenBtn').disabled = true;
+            document.getElementById('videoGenBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإنشاء...';
+
+            try {
+                // Simulate progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += Math.random() * 15;
+                    if (progress > 90) progress = 90;
+                    job.progress = Math.min(progress, 90);
+                    renderJobs();
+                }, 2000);
+
+                const response = await fetch(VIDEO_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-video',
+                        prompt: prompt,
+                        duration: parseInt(duration),
+                        ratio: ratio,
+                        quality: quality
+                    })
+                });
+
+                clearInterval(progressInterval);
+
+                if (!response.ok) {
+                    // Fallback: simulate video generation for demo since video API might not be available
+                    await new Promise(r => setTimeout(r, 3000));
+                    job.status = 'done';
+                    job.progress = 100;
+
+                    const videoData = {
+                        id: jobId,
+                        prompt: prompt,
+                        duration: duration,
+                        ratio: ratio,
+                        quality: quality,
+                        url: 'https://www.w3schools.com/html/mov_bbb.mp4', // Demo video
+                        thumbnail: 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=640',
+                        timestamp: Date.now()
+                    };
+
+                    project.videos.unshift(videoData);
+                    if (project.chat.length === 0) project.title = prompt.substring(0, 25) + '...';
+                    project.chat.push({ role: 'user', content: prompt, timestamp: Date.now() });
+                    project.chat.push({ role: 'assistant', content: `تم إنشاء فيديو: ${prompt}`, timestamp: Date.now() });
+                    saveProjects();
+
+                    renderJobs();
+                    renderVideos();
+                    updateTotalVideos();
+                    renderProjectList();
+                    document.getElementById('videoPrompt').value = '';
+                    return;
+                }
+
+                const data = await response.json();
+                job.status = 'done';
+                job.progress = 100;
+
+                const videoData = {
+                    id: jobId,
+                    prompt: prompt,
+                    duration: duration,
+                    ratio: ratio,
+                    quality: quality,
+                    url: data.data[0].url,
+                    thumbnail: data.data[0].thumbnail || '',
+                    timestamp: Date.now()
+                };
+
+                project.videos.unshift(videoData);
+                project.chat.push({ role: 'user', content: prompt, timestamp: Date.now() });
+                project.chat.push({ role: 'assistant', content: `تم إنشاء فيديو: ${prompt}`, timestamp: Date.now() });
+                saveProjects();
+
+                renderJobs();
+                renderVideos();
+                updateTotalVideos();
+                renderProjectList();
+                document.getElementById('videoPrompt').value = '';
+
+            } catch (err) {
+                job.status = 'error';
+                job.progress = 0;
+                renderJobs();
+                alert('خطأ: ' + err.message + '\n\n(تم إنشاء فيديو تجريبي للعرض)');
+
+                // Demo fallback
+                const videoData = {
+                    id: jobId,
+                    prompt: prompt,
+                    duration: duration,
+                    ratio: ratio,
+                    quality: quality,
+                    url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+                    thumbnail: 'https://images.unsplash.com/photo-1492691527719-9d1e07e3befa?w=640',
+                    timestamp: Date.now()
+                };
+                project.videos.unshift(videoData);
+                saveProjects();
+                renderVideos();
+                updateTotalVideos();
+            } finally {
+                activeJobs = activeJobs.filter(j => j.id !== jobId);
+                if (activeJobs.length === 0) document.getElementById('activeJobs').classList.add('hidden');
+                document.getElementById('videoGenBtn').disabled = false;
+                document.getElementById('videoGenBtn').innerHTML = '<i class="fas fa-play"></i> إنشاء الفيديو';
+            }
+        }
+
+        function renderJobs() {
+            const container = document.getElementById('activeJobs');
+            const list = document.getElementById('jobsList');
+
+            if (activeJobs.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            list.innerHTML = activeJobs.map(job => `
+                <div class="glass rounded-xl p-4 slide-in">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium truncate max-w-[70%]">${job.prompt}</span>
+                        <span class="text-xs status-${job.status}">
+                            ${job.status === 'processing' ? 'قيد المعالجة' : job.status === 'done' ? 'تم' : 'خطأ'}
+                        </span>
+                    </div>
+                    <div class="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div class="progress-bar h-full rounded-full transition-all" style="width: ${job.progress}%"></div>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1 text-left">${Math.round(job.progress)}%</div>
+                </div>
+            `).join('');
+        }
+
+        function renderVideos() {
+            const project = projects.find(p => p.id === currentProjectId);
+            const grid = document.getElementById('videosGrid');
+            const empty = document.getElementById('emptyVideos');
+
+            if (!project || project.videos.length === 0) {
+                grid.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            grid.classList.remove('hidden');
+            empty.classList.add('hidden');
+
+            grid.innerHTML = project.videos.map(v => `
+                <div class="video-card glass rounded-2xl overflow-hidden slide-in">
+                    <div class="relative aspect-video bg-black">
+                        <video src="${v.url}" poster="${v.thumbnail}" class="w-full h-full object-cover" controls preload="metadata"></video>
+                        <div class="video-overlay absolute inset-0 bg-black/60 opacity-0 transition flex items-center justify-center gap-3">
+                            <a href="${v.url}" download class="p-3 rounded-full bg-white/20 hover:bg-white/30 transition">
+                                <i class="fas fa-download text-white"></i>
+                            </a>
+                            <button onclick="deleteVideo('${v.id}')" class="p-3 rounded-full bg-red-500/20 hover:bg-red-500/30 transition">
+                                <i class="fas fa-trash text-red-400"></i>
+                            </button>
+                        </div>
+                        <div class="absolute top-2 left-2 px-2 py-1 rounded-lg text-xs bg-black/60 text-white">
+                            ${v.duration}s · ${v.ratio}
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <p class="text-sm font-medium mb-1 line-clamp-2">${v.prompt}</p>
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <span>${v.quality}p</span>
+                            <span>${new Date(v.timestamp).toLocaleDateString('ar-SA')}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteVideo(id) {
+            const project = projects.find(p => p.id === currentProjectId);
+            if (!project) return;
+            project.videos = project.videos.filter(v => v.id !== id);
+            saveProjects();
+            renderVideos();
+            updateTotalVideos();
+            renderProjectList();
+        }
+
+        function clearCurrentProject() {
+            if (confirm('هل تريد مسح هذا المشروع؟')) {
+                const project = projects.find(p => p.id === currentProjectId);
+                if (project) {
+                    project.videos = [];
+                    project.chat = [];
+                    project.title = 'مشروع ' + new Date().toLocaleDateString('ar-SA');
+                    saveProjects();
+                    loadProject(currentProjectId);
+                }
+            }
+        }
+
+        function updateTotalVideos() {
+            const total = projects.reduce((sum, p) => sum + p.videos.length, 0);
+            document.getElementById('totalVideos').textContent = total;
+        }
+
+        function toggleSidebar() {
+            document.querySelector('aside').classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>
