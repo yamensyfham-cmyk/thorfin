@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen AI Hub - مركز الذكاء الاصطناعي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+                    colors: {
+                        primary: '#8b5cf6',
+                        secondary: '#ec4899',
+                        accent: '#06b6d4',
+                        dark: '#0f172a',
+                        darker: '#020617'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background: #020617; }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        .glow { box-shadow: 0 0 40px rgba(139,92,246,0.15); }
+        .card-hover { transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
+        .card-hover:hover { transform: translateY(-8px); box-shadow: 0 20px 60px rgba(139,92,246,0.2); }
+        .gradient-text { background: linear-gradient(135deg, #8b5cf6, #ec4899, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        .grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0); background-size: 40px 40px; }
+    </style>
+</head>
+<body class="min-h-screen text-white grid-bg">
+    <!-- Navbar -->
+    <nav class="fixed top-0 w-full z-50 glass border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fas fa-brain text-white text-lg"></i>
+                </div>
+                <span class="text-xl font-bold gradient-text">Qwen AI Hub</span>
+            </div>
+            <div class="hidden md:flex items-center gap-6 text-sm text-gray-400">
+                <span class="flex items-center gap-2"><i class="fas fa-circle text-green-400 text-xs animate-pulse"></i> API متصل</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="pt-32 pb-20 px-6 relative overflow-hidden">
+        <div class="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] animate-float"></div>
+        <div class="max-w-5xl mx-auto text-center relative z-10">
+            <h1 class="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">
+                <span class="gradient-text">ذكاء اصطناعي</span><br>
+                <span class="text-white">بلا حدود</span>
+            </h1>
+            <p class="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed">
+                منصة متكاملة للمحادثات النصية، توليد الصور، وإنشاء الفيديو — 
+                <span class="text-primary font-semibold">كلها بذاكرة حقيقية</span> تحفظ سياقك.
+            </p>
+        </div>
+    </section>
+
+    <!-- Cards -->
+    <section class="pb-20 px-6">
+        <div class="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
+            <!-- Chat -->
+            <a href="chat.html" class="glass rounded-3xl p-8 card-hover glow group cursor-pointer block">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <i class="fas fa-comments text-2xl text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-3">المحادثة الذكية</h3>
+                <p class="text-gray-400 leading-relaxed mb-4">
+                    شات متكامل مع ذاكرة حقيقية. يحفظ سياق المحادثة، يدعم إنشاء جلسات متعددة، وتصدير التاريخ.
+                </p>
+                <div class="flex items-center gap-2 text-primary font-semibold">
+                    <span>ابدأ المحادثة</span>
+                    <i class="fas fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
+                </div>
+            </a>
+
+            <!-- Images -->
+            <a href="images.html" class="glass rounded-3xl p-8 card-hover glow group cursor-pointer block">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-secondary to-pink-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <i class="fas fa-image text-2xl text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-3">استوديو الصور</h3>
+                <p class="text-gray-400 leading-relaxed mb-4">
+                    توليد صور من النصوص، تحليل الصور، وتعديلها — مع ذاكرة تحفظ تاريخ الصور والمحادثات المرئية.
+                </p>
+                <div class="flex items-center gap-2 text-secondary font-semibold">
+                    <span>افتح الاستوديو</span>
+                    <i class="fas fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
+                </div>
+            </a>
+
+            <!-- Video -->
+            <a href="video.html" class="glass rounded-3xl p-8 card-hover glow group cursor-pointer block">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-cyan-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <i class="fas fa-video text-2xl text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-3">مولد الفيديو</h3>
+                <p class="text-gray-400 leading-relaxed mb-4">
+                    حوّل أفكارك إلى فيديوهات. يدعم الأوصاف النصية، ويحفظ تاريخ الفيديوهات المولدة في ذاكرة مستقلة.
+                </p>
+                <div class="flex items-center gap-2 text-accent font-semibold">
+                    <span>أنشئ فيديو</span>
+                    <i class="fas fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/5 py-8 text-center text-gray-500 text-sm">
+        <p>Qwen AI Hub — مبني على Qwen API Proxy</p>
+    </footer>
+</body>
+</html>
